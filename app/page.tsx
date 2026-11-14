@@ -27,21 +27,45 @@ export default function Dashboard() {
   const flaggedAmt = flagged.reduce((s, t) => s + t.amount, 0);
 
   return (
-    <div className="wrap">
-      <header>
-        <h1>Fraud Detection Dashboard</h1>
-        <button onClick={load} disabled={loading}>{loading ? "Loading…" : "Refresh"}</button>
-      </header>
-      <div className="grid">
-        <StatCard label="Transactions" value={data.length.toString()} />
-        <StatCard label="Flagged" value={flagged.length.toString()} tone="danger" />
-        <StatCard label="Flag rate" value={data.length ? `${((flagged.length / data.length) * 100).toFixed(1)}%` : "–"} />
-        <StatCard label="Amount at risk" value={`$${flaggedAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} tone="danger" />
-        <StatCard label="Total volume" value={`$${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} tone="ok" />
-      </div>
-      <ScoreChart data={data} />
-      <div style={{ height: 16 }} />
-      <TransactionsTable data={data} />
+    <div className="desktop">
+      <main className="window">
+        <header className="titlebar">
+          <div className="lights" aria-hidden>
+            <span className="light close" />
+            <span className="light minimize" />
+            <span className="light zoom" />
+          </div>
+          <h1 className="title">
+            <span className={`statusDot ${loading ? "busy" : ""}`} aria-hidden />
+            Fraud Detection Dashboard
+          </h1>
+        </header>
+
+        <div className="toolbar">
+          <span>Flagging scores at or above {THRESHOLD.toFixed(2)}</span>
+          <button className="aquaButton" onClick={load} disabled={loading}>
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        </div>
+
+        <div className="content">
+          <div className="grid">
+            <StatCard label="Transactions" value={data.length.toString()} />
+            <StatCard label="Flagged" value={flagged.length.toString()} tone="danger" />
+            <StatCard label="Flag rate" value={data.length ? `${((flagged.length / data.length) * 100).toFixed(1)}%` : "–"} />
+            <StatCard label="Amount at risk" value={`$${flaggedAmt.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} tone="danger" />
+            <StatCard label="Total volume" value={`$${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} tone="ok" />
+          </div>
+          <ScoreChart data={data} />
+          <TransactionsTable data={data} />
+        </div>
+
+        <footer className="statusbar" aria-live="polite">
+          {loading ? "Loading…" : `${data.length} transactions, ${flagged.length} flagged`}
+        </footer>
+      </main>
+
+      <p className="credit">&copy; 2026 48 to None</p>
     </div>
   );
 }
