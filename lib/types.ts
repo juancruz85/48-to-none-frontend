@@ -19,6 +19,10 @@ export type FeedbackRecord = {
   label: FeedbackLabel;
   updated_at: string;
 };
+export type LocalFeedbackRecord = FeedbackRecord & {
+  pending?: boolean;
+  synced_label?: FeedbackLabel;
+};
 export type Pattern = {
   item: string;
   suspicious: boolean;

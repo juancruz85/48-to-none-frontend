@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FeedbackLabel, FeedbackRecord, Pattern, Txn, TxnStatus } from "@/lib/types";
+import { FeedbackLabel, LocalFeedbackRecord, Pattern, Txn, TxnStatus } from "@/lib/types";
 
 const LABEL: Record<TxnStatus, string> = { fraud: "Possible fraud", suspicious: "Suspicious", cleared: "Cleared by AI", ok: "OK" };
 const BADGE: Record<TxnStatus, string> = { fraud: "high", suspicious: "mid", cleared: "info", ok: "low" };
@@ -72,12 +72,13 @@ export function PatternsTable({ patterns }: { patterns: Pattern[] }) {
 type Props = {
   data: Txn[];
   uploadVersion?: string | null;
-  feedback?: FeedbackRecord[];
+  feedback?: LocalFeedbackRecord[];
   manualLabeling?: boolean;
+  labelsDisabled?: boolean;
   onLabel?: (row: number, label: FeedbackLabel) => void;
 };
 
-export default function TransactionsTable({ data, uploadVersion, feedback = [], manualLabeling = false, onLabel }: Props) {
+export default function TransactionsTable({ data, uploadVersion, feedback = [], manualLabeling = false, labelsDisabled = false, onLabel }: Props) {
   const [show, setShow] = useState<"all" | TxnStatus>("all");
   const rows = data
     .filter((t) => show === "all" || t.status === show)
@@ -114,7 +115,16 @@ export default function TransactionsTable({ data, uploadVersion, feedback = [], 
                   <td>{t.item}</td>
                   <td>{t.type}</td>
                   <td className="num">{amount(t.amount)}</td>
-                  <td><span className={`badge ${BADGE[t.status]}`}>{LABEL[t.status]}</span></td>
+                  <td>
+                    <div className="statusBadges">
+                      <span className={`badge ${BADGE[t.status]}`}>{LABEL[t.status]}</span>
+                      {(() => {
+                        const item = feedback.find((entry) => entry.row === t.row && entry.upload_version === uploadVersion);
+                        if (!item?.synced_label) return null;
+                        return <span className={`badge ${item.synced_label === "fraud" ? "high" : "low"}`}>User: {item.synced_label === "fraud" ? "Fraud" : "Not fraud"}</span>;
+                      })()}
+                    </div>
+                  </td>
                   <td>
                     {(() => {
                       const saved = feedback.find((item) => item.row === t.row && item.upload_version === uploadVersion);
@@ -122,8 +132,8 @@ export default function TransactionsTable({ data, uploadVersion, feedback = [], 
                       if (!uploadVersion || !onLabel || !canLabel) return saved ? (saved.label === "fraud" ? "Fraud" : "Not fraud") : "–";
                       return (
                         <div className="feedbackButtons">
-                          <button type="button" className={saved?.label === "fraud" ? "selected" : ""} aria-pressed={saved?.label === "fraud"} onClick={() => onLabel(t.row, "fraud")}>Fraud</button>
-                          <button type="button" className={saved?.label === "not_fraud" ? "selected" : ""} aria-pressed={saved?.label === "not_fraud"} onClick={() => onLabel(t.row, "not_fraud")}>Not fraud</button>
+                          <button type="button" disabled={labelsDisabled} className={saved?.label === "fraud" ? "selected" : ""} aria-pressed={saved?.label === "fraud"} onClick={() => onLabel(t.row, "fraud")}>Fraud</button>
+                          <button type="button" disabled={labelsDisabled} className={saved?.label === "not_fraud" ? "selected" : ""} aria-pressed={saved?.label === "not_fraud"} onClick={() => onLabel(t.row, "not_fraud")}>Not fraud</button>
                         </div>
                       );
                     })()}

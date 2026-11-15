@@ -465,6 +465,7 @@ tbody tr:hover {
 }
 .filter input[type="checkbox"] { margin: 0; }
 .feedbackButtons { display: flex; flex-wrap: wrap; gap: 4px; min-width: 130px; }
+.statusBadges { display: flex; flex-wrap: wrap; gap: 4px; }
 .feedbackButtons button {
   border: 1px solid #8c8c8c;
   border-radius: 4px;
@@ -476,6 +477,7 @@ tbody tr:hover {
   cursor: pointer;
 }
 .feedbackButtons button.selected { background: #d7e9e6; border-color: #57978e; }
+.feedbackButtons button:disabled { opacity: .55; cursor: default; }
 .tableScroll.tall {
   max-height: 420px;
   overflow-y: auto;
