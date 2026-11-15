@@ -18,6 +18,11 @@ function sheetName(request: Request) {
   return new URL(request.url).searchParams.get("name")?.trim() ?? "";
 }
 
+function feedbackPolicy(request: Request) {
+  const value = new URL(request.url).searchParams.get("feedback_policy");
+  return value === "keep" || value === "discard" ? value : null;
+}
+
 export async function POST(request: Request, { params }: Context) {
   const { id } = await params;
   const name = sheetName(request);
@@ -27,7 +32,9 @@ export async function POST(request: Request, { params }: Context) {
 
   const owned = await ownedAccount(id);
   if ("failure" in owned) return owned.failure;
-  return fraudApi("PUT", `/sheets/${owned.profileId}/${encodeURIComponent(id)}/${encodeURIComponent(name)}`, content);
+  const policy = feedbackPolicy(request);
+  const query = policy ? `?feedback_policy=${policy}` : "";
+  return fraudApi("PUT", `/sheets/${owned.profileId}/${encodeURIComponent(id)}/${encodeURIComponent(name)}${query}`, content);
 }
 
 export async function DELETE(request: Request, { params }: Context) {

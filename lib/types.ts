@@ -9,6 +9,16 @@ export type Txn = {
   signals: string[];
   reason: string;
 };
+export type FeedbackLabel = "fraud" | "not_fraud";
+export type FeedbackRecord = {
+  profile_id: string;
+  account_id: string;
+  sheet_id: string;
+  upload_version: string;
+  row: number;
+  label: FeedbackLabel;
+  updated_at: string;
+};
 export type Pattern = {
   item: string;
   suspicious: boolean;
@@ -27,6 +37,7 @@ export type Pattern = {
 export type SheetStatus = "checking" | "done" | "failed" | "needs_fixing";
 export type SheetReport = {
   sheet_id: string;
+  upload_version: string | null;
   account_id: string | null;
   name: string;
   status: SheetStatus;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pattern, Txn, TxnStatus } from "@/lib/types";
+import { FeedbackLabel, FeedbackRecord, Pattern, Txn, TxnStatus } from "@/lib/types";
 
 const LABEL: Record<TxnStatus, string> = { fraud: "Possible fraud", suspicious: "Suspicious", cleared: "Cleared by AI", ok: "OK" };
 const BADGE: Record<TxnStatus, string> = { fraud: "high", suspicious: "mid", cleared: "info", ok: "low" };
@@ -69,7 +69,15 @@ export function PatternsTable({ patterns }: { patterns: Pattern[] }) {
   );
 }
 
-export default function TransactionsTable({ data }: { data: Txn[] }) {
+type Props = {
+  data: Txn[];
+  uploadVersion?: string | null;
+  feedback?: FeedbackRecord[];
+  manualLabeling?: boolean;
+  onLabel?: (row: number, label: FeedbackLabel) => void;
+};
+
+export default function TransactionsTable({ data, uploadVersion, feedback = [], manualLabeling = false, onLabel }: Props) {
   const [show, setShow] = useState<"all" | TxnStatus>("all");
   const rows = data
     .filter((t) => show === "all" || t.status === show)
@@ -97,7 +105,7 @@ export default function TransactionsTable({ data }: { data: Txn[] }) {
         <div className="tableScroll tall">
           <table>
             <thead>
-              <tr><th>Date</th><th>Purchase</th><th>Type</th><th className="num">Amount</th><th>Status</th></tr>
+              <tr><th>Date</th><th>Purchase</th><th>Type</th><th className="num">Amount</th><th>Status</th><th>Your label</th></tr>
             </thead>
             <tbody>
               {rows.map((t) => (
@@ -107,6 +115,19 @@ export default function TransactionsTable({ data }: { data: Txn[] }) {
                   <td>{t.type}</td>
                   <td className="num">{amount(t.amount)}</td>
                   <td><span className={`badge ${BADGE[t.status]}`}>{LABEL[t.status]}</span></td>
+                  <td>
+                    {(() => {
+                      const saved = feedback.find((item) => item.row === t.row && item.upload_version === uploadVersion);
+                      const canLabel = manualLabeling || t.status === "fraud" || t.status === "suspicious";
+                      if (!uploadVersion || !onLabel || !canLabel) return saved ? (saved.label === "fraud" ? "Fraud" : "Not fraud") : "–";
+                      return (
+                        <div className="feedbackButtons">
+                          <button type="button" className={saved?.label === "fraud" ? "selected" : ""} aria-pressed={saved?.label === "fraud"} onClick={() => onLabel(t.row, "fraud")}>Fraud</button>
+                          <button type="button" className={saved?.label === "not_fraud" ? "selected" : ""} aria-pressed={saved?.label === "not_fraud"} onClick={() => onLabel(t.row, "not_fraud")}>Not fraud</button>
+                        </div>
+                      );
+                    })()}
+                  </td>
                 </tr>
               ))}
             </tbody>

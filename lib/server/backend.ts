@@ -80,7 +80,10 @@ export async function myProfileId(): Promise<{ profileId: string } | { failure: 
 export async function fraudApi(method: string, path: string, body?: BodyInit): Promise<Response> {
   if (!fraudUrl()) return fail(503, "NOT_CONFIGURED", "FRAUD_API_URL is not set in .env.local.");
   try {
-    const res = await fetch(`${fraudUrl()}${path}`, { method, body, cache: "no-store" });
+    const res = await fetch(`${fraudUrl()}${path}`, {
+      method, body, cache: "no-store",
+      headers: typeof body === "string" ? { "Content-Type": "application/json" } : undefined,
+    });
     const data = await res.json().catch(() => null);
     if (data === null) return fail(502, "BACKEND_ERROR", `The fraud backend returned ${res.status}.`);
     return Response.json(data, { status: res.status });

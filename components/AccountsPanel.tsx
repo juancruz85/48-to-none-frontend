@@ -94,9 +94,15 @@ export default function AccountsPanel({ profile, sheets, onChanged, onView }: Pr
   const upload = async (files: FileList | null) => {
     const accountId = uploadFor.current;
     for (const file of Array.from(files ?? [])) {
-      const ok = await run(() =>
-        fetch(`/api/accounts/${accountId}/sheets?name=${encodeURIComponent(file.name)}`, { method: "POST", body: file })
-      );
+      const ok = await run(async () => {
+        const base = `/api/accounts/${accountId}/sheets?name=${encodeURIComponent(file.name)}`;
+        const response = await fetch(base, { method: "POST", body: file });
+        const error = await response.clone().json().catch(() => null);
+        if (response.status !== 400 || !String(error?.error?.message ?? "").toLowerCase().includes("choose whether to keep or discard")) return response;
+        const choice = window.prompt("This CSV has labels from an older upload. Type KEEP to preserve them hidden for later review, or DISCARD to remove them.");
+        if (!choice || !["keep", "discard"].includes(choice.trim().toLowerCase())) return response;
+        return fetch(`${base}&feedback_policy=${choice.trim().toLowerCase()}`, { method: "POST", body: file });
+      });
       if (!ok) break;
     }
     if (fileInput.current) fileInput.current.value = "";

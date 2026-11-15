@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Report, Session, SheetReport } from "@/lib/types";
+import { FeedbackLabel, FeedbackRecord, Report, Session, SheetReport } from "@/lib/types";
 import StatCard from "@/components/StatCard";
 import SpendChart from "@/components/SpendChart";
 import TransactionsTable, { FraudTable, PatternsTable } from "@/components/TransactionsTable";
@@ -25,6 +25,9 @@ export default function Dashboard() {
   const [reportError, setReportError] = useState("");
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState("");
+  const [feedback, setFeedback] = useState<FeedbackRecord[]>([]);
+  const [manualLabeling, setManualLabeling] = useState(false);
+  const [feedbackNotice, setFeedbackNotice] = useState("");
   const signedIn = useRef(false);
 
   const loadSession = useCallback(async () => {
@@ -90,6 +93,83 @@ export default function Dashboard() {
   };
 
   const profile = session?.profile;
+  const feedbackStorageKey = profile ? `48-to-none:feedback:${profile.profile_id}` : "";
+  useEffect(() => {
+    if (!feedbackStorageKey) return;
+    try {
+      const cached = JSON.parse(localStorage.getItem(feedbackStorageKey) ?? "[]") as (FeedbackRecord & { pending?: boolean })[];
+      setFeedback(cached);
+      fetch("/api/feedback", { cache: "no-store" }).then(async (res) => {
+        if (!res.ok) throw new Error();
+        const body = await res.json();
+        const server = (body.feedback ?? []) as FeedbackRecord[];
+        const merged = new Map<string, FeedbackRecord & { pending?: boolean }>();
+        for (const item of server) merged.set(`${item.sheet_id}:${item.upload_version}:${item.row}`, item);
+        for (const item of cached) {
+          const key = `${item.sheet_id}:${item.upload_version}:${item.row}`;
+          if (item.pending || !merged.has(key)) merged.set(key, item);
+        }
+        const result = [...merged.values()];
+        setFeedback(result);
+        localStorage.setItem(feedbackStorageKey, JSON.stringify(result));
+        for (const item of result.filter((record) => record.pending)) {
+          const synced = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) });
+          if (synced.ok) item.pending = false;
+        }
+        setFeedback([...result]);
+        localStorage.setItem(feedbackStorageKey, JSON.stringify(result));
+        setFeedbackNotice("");
+      }).catch(() => setFeedbackNotice("Some labels are saved in this browser and will sync when the API is available."));
+    } catch {
+      setFeedback([]);
+    }
+  }, [feedbackStorageKey]);
+
+  useEffect(() => {
+    if (!feedbackStorageKey) return;
+    const retry = async () => {
+      let cached: (FeedbackRecord & { pending?: boolean })[] = [];
+      try { cached = JSON.parse(localStorage.getItem(feedbackStorageKey) ?? "[]"); } catch { return; }
+      const pending = cached.filter((item) => item.pending);
+      if (!pending.length) return;
+      let failed = false;
+      for (const item of pending) {
+        try {
+          const res = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) });
+          if (res.ok) item.pending = false;
+          else failed = true;
+        } catch { failed = true; }
+      }
+      localStorage.setItem(feedbackStorageKey, JSON.stringify(cached));
+      setFeedback(cached);
+      setFeedbackNotice(failed ? "Some labels are saved in this browser and will sync when the API is available." : "");
+    };
+    const timer = window.setInterval(retry, 15000);
+    return () => window.clearInterval(timer);
+  }, [feedbackStorageKey]);
+
+  const saveLabel = async (sheet: SheetReport, row: number, label: FeedbackLabel) => {
+    if (!profile || !sheet.account_id || !sheet.upload_version) return;
+    const record: FeedbackRecord & { pending?: boolean } = {
+      profile_id: profile.profile_id, account_id: sheet.account_id, sheet_id: sheet.sheet_id,
+      upload_version: sheet.upload_version, row, label, updated_at: new Date().toISOString(), pending: true,
+    };
+    const key = `${record.sheet_id}:${record.upload_version}:${record.row}`;
+    const next = [...feedback.filter((item) => `${item.sheet_id}:${item.upload_version}:${item.row}` !== key), record];
+    setFeedback(next);
+    localStorage.setItem(feedbackStorageKey, JSON.stringify(next));
+    try {
+      const res = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(record) });
+      if (!res.ok) throw new Error();
+      record.pending = false;
+      setFeedback([...next]);
+      localStorage.setItem(feedbackStorageKey, JSON.stringify(next));
+      setFeedbackNotice("");
+    } catch {
+      setFeedbackNotice("Label saved in this browser; it will sync when the API is available.");
+    }
+  };
+
   const sheets = report?.sheets ?? [];
   const sheet = sheets.find((s) => s.sheet_id === picked) ?? sheets[0];
   const label = (s: SheetReport) => {
@@ -135,6 +215,7 @@ export default function Dashboard() {
             </select>
           </label>
           <div className="toolbarActions">
+            <label className="filter"><input type="checkbox" checked={manualLabeling} onChange={(e) => setManualLabeling(e.target.checked)} /> Label all transactions</label>
             {session?.email && <span className="who">{session.email}</span>}
             <button className="aquaButton" onClick={loadReport} disabled={loading}>
               {loading ? "Loading…" : "Refresh"}
@@ -144,6 +225,7 @@ export default function Dashboard() {
         </div>
 
         <div className="content">
+          {feedbackNotice && <p className="notice" role="status">{feedbackNotice}</p>}
           {reportError && <p className="notice error" role="alert">{reportError}</p>}
           {report?.gave_up && (
             <p className="notice error" role="alert">
@@ -213,7 +295,7 @@ export default function Dashboard() {
               <PatternsTable patterns={sheet.patterns} />
               <FraudTable data={sheet.transactions} />
               <SpendChart data={sheet.transactions} />
-              <TransactionsTable data={sheet.transactions} />
+              <TransactionsTable data={sheet.transactions} uploadVersion={sheet.upload_version} feedback={feedback.filter((item) => item.sheet_id === sheet.sheet_id)} manualLabeling={manualLabeling} onLabel={(row, value) => saveLabel(sheet, row, value)} />
 
               {sheet.analysis && (
                 <details className="panel">
