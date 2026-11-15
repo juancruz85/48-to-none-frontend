@@ -2,6 +2,7 @@
 
 import { FormEvent, useRef, useState } from "react";
 import { Profile, ProfileAccount, ProfileTag, SheetReport } from "@/lib/types";
+import { api } from "@/lib/basePath";
 
 const SHEET_STATUS: Record<SheetReport["status"], string> = {
   checking: "Checking…",
@@ -47,7 +48,7 @@ export default function AccountsPanel({ profile, sheets, onChanged, onView }: Pr
   };
 
   const json = (method: string, path: string, body?: unknown) => () =>
-    fetch(path, {
+    fetch(api(path), {
       method,
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -96,12 +97,12 @@ export default function AccountsPanel({ profile, sheets, onChanged, onView }: Pr
     for (const file of Array.from(files ?? [])) {
       const ok = await run(async () => {
         const base = `/api/accounts/${accountId}/sheets?name=${encodeURIComponent(file.name)}`;
-        const response = await fetch(base, { method: "POST", body: file });
+        const response = await fetch(api(base), { method: "POST", body: file });
         const error = await response.clone().json().catch(() => null);
         if (response.status !== 400 || !String(error?.error?.message ?? "").toLowerCase().includes("choose whether to keep or discard")) return response;
         const choice = window.prompt("This CSV has labels from an older upload. Type KEEP to preserve them hidden for later review, or DISCARD to remove them.");
         if (!choice || !["keep", "discard"].includes(choice.trim().toLowerCase())) return response;
-        return fetch(`${base}&feedback_policy=${choice.trim().toLowerCase()}`, { method: "POST", body: file });
+        return fetch(api(`${base}&feedback_policy=${choice.trim().toLowerCase()}`), { method: "POST", body: file });
       });
       if (!ok) break;
     }

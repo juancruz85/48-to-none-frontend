@@ -8,6 +8,7 @@ import SpendChart from "@/components/SpendChart";
 import SpendingAnalysis from "@/components/SpendingAnalysis";
 import TransactionsTable, { FraudTable, PatternsTable } from "@/components/TransactionsTable";
 import AccountsPanel from "@/components/AccountsPanel";
+import { api } from "@/lib/basePath";
 
 const money = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
@@ -33,7 +34,7 @@ export default function Dashboard() {
 
   const loadSession = useCallback(async () => {
     try {
-      const res = await fetch("/api/profile", { cache: "no-store" });
+      const res = await fetch(api("/api/profile"), { cache: "no-store" });
       if (res.status === 401) {
         router.replace("/login");
         return false;
@@ -54,7 +55,7 @@ export default function Dashboard() {
   const loadReport = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/report", { cache: "no-store" });
+      const res = await fetch(api("/api/report"), { cache: "no-store" });
       if (res.status === 401) {
         router.replace("/login");
         return;
@@ -89,7 +90,7 @@ export default function Dashboard() {
   }, [waiting, loadReport]);
 
   const signOut = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch(api("/api/auth/logout"), { method: "POST" });
     router.replace("/login");
   };
 
@@ -100,7 +101,7 @@ export default function Dashboard() {
     try {
       const cached = JSON.parse(localStorage.getItem(feedbackStorageKey) ?? "[]") as LocalFeedbackRecord[];
       setFeedback(cached);
-      fetch("/api/feedback", { cache: "no-store" }).then(async (res) => {
+      fetch(api("/api/feedback"), { cache: "no-store" }).then(async (res) => {
         if (!res.ok) throw new Error();
         const body = await res.json();
         const server = (body.feedback ?? []) as FeedbackRecord[];
@@ -145,7 +146,7 @@ export default function Dashboard() {
     for (const item of queued.filter((record) => record.pending)) {
       try {
         const { pending: _pending, synced_label: _synced, ...payload } = item;
-        const res = await fetch("/api/feedback", {
+        const res = await fetch(api("/api/feedback"), {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
         });
         if (res.ok) {
