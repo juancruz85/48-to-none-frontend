@@ -2,11 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/basePath";
 
 type Mode = "signin" | "signup" | "confirm";
 
 async function post(path: string, body: Record<string, string>) {
-  const res = await fetch(path, {
+  const res = await fetch(api(path), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
