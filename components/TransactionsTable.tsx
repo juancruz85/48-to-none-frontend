@@ -128,7 +128,7 @@ export default function TransactionsTable({ data, uploadVersion, feedback = [], 
                   <td>
                     {(() => {
                       const saved = feedback.find((item) => item.row === t.row && item.upload_version === uploadVersion);
-                      const canLabel = manualLabeling || t.status === "fraud" || t.status === "suspicious";
+                      const canLabel = manualLabeling || t.status === "fraud" || t.status === "suspicious" || Boolean(saved);
                       if (!uploadVersion || !onLabel || !canLabel) return saved ? (saved.label === "fraud" ? "Fraud" : "Not fraud") : "–";
                       return (
                         <div className="feedbackButtons">
