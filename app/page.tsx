@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FeedbackLabel, FeedbackRecord, LocalFeedbackRecord, Report, Session, SheetReport } from "@/lib/types";
 import StatCard from "@/components/StatCard";
 import SpendChart from "@/components/SpendChart";
+import SpendingAnalysis from "@/components/SpendingAnalysis";
 import TransactionsTable, { FraudTable, PatternsTable } from "@/components/TransactionsTable";
 import AccountsPanel from "@/components/AccountsPanel";
 
@@ -286,12 +287,7 @@ export default function Dashboard() {
               <SpendChart data={sheet.transactions} />
               <TransactionsTable data={sheet.transactions} uploadVersion={sheet.upload_version} feedback={feedback.filter((item) => item.sheet_id === sheet.sheet_id)} manualLabeling={manualLabeling} labelsDisabled={loading} onLabel={(row, value) => saveLabel(sheet, row, value)} />
 
-              {sheet.analysis && (
-                <details className="panel">
-                  <summary className="panelTitle">Spending analysis</summary>
-                  <pre className="analysis">{sheet.analysis}</pre>
-                </details>
-              )}
+              <SpendingAnalysis data={sheet.transactions} />
             </>
           )}
         </div>
