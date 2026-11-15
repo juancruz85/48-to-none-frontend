@@ -1,4 +1,4 @@
-export default function StatCard({ label, value, tone }: { label: string; value: string; tone?: "danger" | "ok" }) {
+export default function StatCard({ label, value, tone }: { label: string; value: string; tone?: "danger" | "ok" | "warn" }) {
   return (
     <div className={`stat ${tone ?? ""}`}>
       <div className="label">{label}</div>
