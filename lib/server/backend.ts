@@ -3,7 +3,6 @@ import { fail } from "./http";
 import { accessToken } from "./session";
 
 const profileUrl = () => process.env.PROFILE_API_URL?.replace(/\/+$/, "");
-const fraudUrl = () => process.env.FRAUD_API_URL?.replace(/\/+$/, "");
 
 async function callProfileApi(token: string, method: string, path: string, body?: unknown) {
   for (let attempt = 0; ; attempt++) {
@@ -60,34 +59,5 @@ export async function myProfile(): Promise<{ profile: Profile } | { failure: Res
     return { profile: (await res.json()) as Profile };
   } catch {
     return { failure: fail(502, "PROFILE_API_UNREACHABLE", "Could not reach the profile API.") };
-  }
-}
-
-const profileIds = new Map<string, string>();
-
-export async function myProfileId(): Promise<{ profileId: string } | { failure: Response }> {
-  const token = await accessToken();
-  if (!token) return { failure: fail(401, "UNAUTHENTICATED", "Sign in to continue.") };
-  const known = profileIds.get(token);
-  if (known) return { profileId: known };
-  const mine = await myProfile();
-  if ("failure" in mine) return mine;
-  if (profileIds.size > 500) profileIds.clear();
-  profileIds.set(token, mine.profile.profile_id);
-  return { profileId: mine.profile.profile_id };
-}
-
-export async function fraudApi(method: string, path: string, body?: BodyInit): Promise<Response> {
-  if (!fraudUrl()) return fail(503, "NOT_CONFIGURED", "FRAUD_API_URL is not set in .env.local.");
-  try {
-    const res = await fetch(`${fraudUrl()}${path}`, {
-      method, body, cache: "no-store",
-      headers: typeof body === "string" ? { "Content-Type": "application/json" } : undefined,
-    });
-    const data = await res.json().catch(() => null);
-    if (data === null) return fail(502, "BACKEND_ERROR", `The fraud backend returned ${res.status}.`);
-    return Response.json(data, { status: res.status });
-  } catch {
-    return fail(503, "BACKEND_DOWN", "The fraud backend is not running. Start it with: .venv/bin/python -m src.api");
   }
 }

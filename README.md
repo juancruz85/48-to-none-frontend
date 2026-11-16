@@ -18,11 +18,18 @@ profile API. Each account takes CSV uploads of its purchases (`Date`, `Amount`, 
 
 ## Fraud report
 
-Start the Python backend in the backend repo:
+The fraud check runs on the user's own computer. Every user starts the Python backend from the
+backend repo:
 
     .venv/bin/python -m src.api      # http://127.0.0.1:8000
 
-`app/api/report` returns the report for the signed-in user's own uploads (`FRAUD_API_URL` in
-`.env.local`). The model takes a minute or so to load; results fill in as each file is checked.
+The dashboard page calls that backend straight from the browser (`lib/fraudBackend.ts`), also when
+the dashboard itself is hosted at lafluke.com: the Next.js server never talks to it. Uploads, the
+report and the fraud labels therefore stay on the user's machine. The backend only answers pages
+served from lafluke.com or `localhost:3000`; start it with `--allow-origin <url>` for another address.
+`NEXT_PUBLIC_FRAUD_API_URL` changes where the page looks for it (default `http://127.0.0.1:8000`).
+
+The browser may ask to let the site reach devices on the local network; that has to be allowed.
+The model takes a minute or so to load; results fill in as each file is checked.
 
 Hello World!

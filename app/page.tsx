@@ -9,6 +9,7 @@ import SpendingAnalysis from "@/components/SpendingAnalysis";
 import TransactionsTable, { FraudTable, PatternsTable } from "@/components/TransactionsTable";
 import AccountsPanel from "@/components/AccountsPanel";
 import { api } from "@/lib/basePath";
+import { fraudBackend } from "@/lib/fraudBackend";
 
 const money = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [manualLabeling, setManualLabeling] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState("");
   const signedIn = useRef(false);
+  const profileId = useRef("");
 
   const loadSession = useCallback(async () => {
     try {
@@ -45,6 +47,7 @@ export default function Dashboard() {
         return true;
       }
       setProfileError("");
+      profileId.current = body.profile.profile_id;
       setSession(body);
     } catch {
       setProfileError("Could not load your profile.");
@@ -53,13 +56,14 @@ export default function Dashboard() {
   }, [router]);
 
   const loadReport = useCallback(async () => {
+    //the report comes from the backend on the user's own computer, and it needs to know whose sheets to show.
+    if (!profileId.current) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch(api("/api/report"), { cache: "no-store" });
-      if (res.status === 401) {
-        router.replace("/login");
-        return;
-      }
+      const res = await fraudBackend("GET", `/report?profile=${encodeURIComponent(profileId.current)}`);
       const body = await res.json();
       if (!res.ok) {
         setReportError(body?.error?.message ?? "Could not load the fraud report.");
@@ -72,7 +76,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     loadSession().then((ok) => {
@@ -95,13 +99,14 @@ export default function Dashboard() {
   };
 
   const profile = session?.profile;
-  const feedbackStorageKey = profile ? `48-to-none:feedback:${profile.profile_id}` : "";
+  const myId = profile?.profile_id ?? "";
+  const feedbackStorageKey = myId ? `48-to-none:feedback:${myId}` : "";
   useEffect(() => {
     if (!feedbackStorageKey) return;
     try {
       const cached = JSON.parse(localStorage.getItem(feedbackStorageKey) ?? "[]") as LocalFeedbackRecord[];
       setFeedback(cached);
-      fetch(api("/api/feedback"), { cache: "no-store" }).then(async (res) => {
+      fraudBackend("GET", `/feedback?profile=${encodeURIComponent(myId)}`).then(async (res) => {
         if (!res.ok) throw new Error();
         const body = await res.json();
         const server = (body.feedback ?? []) as FeedbackRecord[];
@@ -119,7 +124,7 @@ export default function Dashboard() {
     } catch {
       setFeedback([]);
     }
-  }, [feedbackStorageKey]);
+  }, [feedbackStorageKey, myId]);
 
   const saveLabel = (sheet: SheetReport, row: number, label: FeedbackLabel) => {
     if (!profile || !sheet.account_id || !sheet.upload_version) return;
@@ -146,9 +151,7 @@ export default function Dashboard() {
     for (const item of queued.filter((record) => record.pending)) {
       try {
         const { pending: _pending, synced_label: _synced, ...payload } = item;
-        const res = await fetch(api("/api/feedback"), {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-        });
+        const res = await fraudBackend("POST", "/feedback", JSON.stringify(payload));
         if (res.ok) {
           item.pending = false;
           item.synced_label = item.label;

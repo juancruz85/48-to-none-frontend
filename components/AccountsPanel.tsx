@@ -3,6 +3,7 @@
 import { FormEvent, useRef, useState } from "react";
 import { Profile, ProfileAccount, ProfileTag, SheetReport } from "@/lib/types";
 import { api } from "@/lib/basePath";
+import { fraudBackend } from "@/lib/fraudBackend";
 
 const SHEET_STATUS: Record<SheetReport["status"], string> = {
   checking: "Checking…",
@@ -10,6 +11,8 @@ const SHEET_STATUS: Record<SheetReport["status"], string> = {
   failed: "Failed",
   needs_fixing: "Needs fixing",
 };
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 type Props = {
   profile: Profile;
@@ -26,6 +29,9 @@ export default function AccountsPanel({ profile, sheets, onChanged, onView }: Pr
   const [accountTag, setAccountTag] = useState(profile.default_tag_id);
   const uploadFor = useRef<string>("");
   const fileInput = useRef<HTMLInputElement>(null);
+
+  //uploads are kept by the fraud backend on the user's own computer, under their profile.
+  const sheetsPath = `/sheets/${profile.profile_id}`;
 
   const run = async (request: () => Promise<Response>) => {
     setBusy(true);
@@ -82,9 +88,19 @@ export default function AccountsPanel({ profile, sheets, onChanged, onView }: Pr
 
   const deleteAccount = (account: ProfileAccount, count: number) => {
     const note = count ? ` Its ${count} uploaded file${count === 1 ? "" : "s"} will be deleted too.` : "";
-    if (window.confirm(`Delete the account "${account.name}"?${note}`)) {
-      run(json("DELETE", `/api/accounts/${account.account_id}`));
-    }
+    if (!window.confirm(`Delete the account "${account.name}"?${note}`)) return;
+    run(async () => {
+      const deleted = await json("DELETE", `/api/accounts/${account.account_id}`)();
+      if (!deleted.ok) return deleted;
+      //the account is gone from the profile. its files live in the backend on this computer.
+      const files = await fraudBackend("DELETE", `${sheetsPath}/${account.account_id}`);
+      if (files.ok) return deleted;
+      await onChanged();
+      return Response.json(
+        { error: { message: "The account was deleted, but its uploaded files could not be removed from the fraud backend on this computer." } },
+        { status: 502 },
+      );
+    });
   };
 
   const pickFile = (accountId: string) => {
@@ -96,13 +112,16 @@ export default function AccountsPanel({ profile, sheets, onChanged, onView }: Pr
     const accountId = uploadFor.current;
     for (const file of Array.from(files ?? [])) {
       const ok = await run(async () => {
-        const base = `/api/accounts/${accountId}/sheets?name=${encodeURIComponent(file.name)}`;
-        const response = await fetch(api(base), { method: "POST", body: file });
+        if (file.size > MAX_UPLOAD_BYTES) {
+          return Response.json({ error: { message: `${file.name} is larger than 5 MB.` } }, { status: 400 });
+        }
+        const base = `${sheetsPath}/${accountId}/${encodeURIComponent(file.name)}`;
+        const response = await fraudBackend("PUT", base, file);
         const error = await response.clone().json().catch(() => null);
         if (response.status !== 400 || !String(error?.error?.message ?? "").toLowerCase().includes("choose whether to keep or discard")) return response;
         const choice = window.prompt("This CSV has labels from an older upload. Type KEEP to preserve them hidden for later review, or DISCARD to remove them.");
         if (!choice || !["keep", "discard"].includes(choice.trim().toLowerCase())) return response;
-        return fetch(api(`${base}&feedback_policy=${choice.trim().toLowerCase()}`), { method: "POST", body: file });
+        return fraudBackend("PUT", `${base}?feedback_policy=${choice.trim().toLowerCase()}`, file);
       });
       if (!ok) break;
     }
@@ -111,7 +130,8 @@ export default function AccountsPanel({ profile, sheets, onChanged, onView }: Pr
 
   const deleteSheet = (sheet: SheetReport) => {
     if (!sheet.account_id || !window.confirm(`Delete ${sheet.name}?`)) return;
-    run(json("DELETE", `/api/accounts/${sheet.account_id}/sheets?name=${encodeURIComponent(sheet.name)}`));
+    const path = `${sheetsPath}/${sheet.account_id}/${encodeURIComponent(sheet.name)}`;
+    run(() => fraudBackend("DELETE", path));
   };
 
   const tags = [...profile.tags].sort(
