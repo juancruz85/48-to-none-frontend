@@ -9,7 +9,7 @@ import SpendingAnalysis from "@/components/SpendingAnalysis";
 import TransactionsTable, { FraudTable, PatternsTable } from "@/components/TransactionsTable";
 import AccountsPanel from "@/components/AccountsPanel";
 import { api } from "@/lib/basePath";
-import { fraudBackend } from "@/lib/fraudBackend";
+import { connectBridge, fraudBackend, needsBridge } from "@/lib/fraudBackend";
 
 const money = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
@@ -164,6 +164,12 @@ export default function Dashboard() {
     await loadReport();
   };
 
+  const connectToBackend = async () => {
+    //safari only: opens the backend's helper window. window.open has to run inside the click itself.
+    if (await connectBridge()) return refreshDashboard();
+    setReportError("The helper window did not connect. Check that the backend is running and that Safari allows pop-ups for this site, then press Connect to backend again.");
+  };
+
   const sheets = report?.sheets ?? [];
   const sheet =
     sheets.find((s) => s.sheet_id === picked)
@@ -223,7 +229,17 @@ export default function Dashboard() {
 
         <div className="content">
           {feedbackNotice && <p className="notice" role="status">{feedbackNotice}</p>}
-          {reportError && <p className="notice error" role="alert">{reportError}</p>}
+          {reportError && (
+            <p className="notice error" role="alert">
+              {reportError}
+              {needsBridge() && (
+                <>
+                  {" "}
+                  <button className="aquaButton" onClick={connectToBackend}>Connect to backend</button>
+                </>
+              )}
+            </p>
+          )}
           {report?.gave_up && (
             <p className="notice error" role="alert">
               The backend hit an error it could not fix and stopped checking. Restart it to try again.

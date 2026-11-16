@@ -30,6 +30,12 @@ served from lafluke.com or `localhost:3000`; start it with `--allow-origin <url>
 `NEXT_PUBLIC_FRAUD_API_URL` changes where the page looks for it (default `http://127.0.0.1:8000`).
 
 The browser may ask to let the site reach devices on the local network; that has to be allowed.
+
+Safari blocks every plain-http call from an https page, 127.0.0.1 included, so on lafluke.com it
+cannot call the backend directly. There the dashboard shows a **Connect to backend** button that
+opens the backend's `/bridge` page in a small window; the dashboard hands its calls to that window
+(`postMessage`) and the window makes them. The window has to stay open, and Safari must allow
+pop-ups for the site. On `http://localhost:3000` Safari needs none of this.
 The model takes a minute or so to load; results fill in as each file is checked.
 
 Hello World!
