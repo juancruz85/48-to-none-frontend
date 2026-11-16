@@ -160,7 +160,7 @@ export default function Login() {
         </form>
       </main>
 
-      <p className="credit">&copy; 2026 48 to None</p>
+      <p className="credit">48toNone</p>
     </div>
   );
 }
