@@ -165,7 +165,10 @@ export default function Dashboard() {
   };
 
   const sheets = report?.sheets ?? [];
-  const sheet = sheets.find((s) => s.sheet_id === picked) ?? sheets[0];
+  const sheet =
+    sheets.find((s) => s.sheet_id === picked)
+    ?? sheets.find((s) => s.name.toLowerCase() === "evildata.csv")
+    ?? sheets[0];
   const label = (s: SheetReport) => {
     const account = profile?.accounts.find((a) => a.account_id === s.account_id);
     return account ? `${account.name} / ${s.name}` : s.name;
