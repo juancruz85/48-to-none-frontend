@@ -98,6 +98,16 @@ body {
 .close {
   background: radial-gradient(circle at 50% 85%, #ffb0a4, #e2463c 55%, #9c1a12);
 }
+a.close {
+  cursor: pointer;
+}
+a.close:hover {
+  filter: brightness(0.88);
+}
+a.close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(80, 150, 240, 0.7);
+}
 .minimize {
   background: radial-gradient(circle at 50% 85%, #ffefa0, #f0ae1c 55%, #a56a04);
 }

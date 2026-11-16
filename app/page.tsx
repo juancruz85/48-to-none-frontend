@@ -182,10 +182,10 @@ export default function Dashboard() {
     <div className="desktop">
       <main className="window">
         <header className="titlebar">
-          <div className="lights" aria-hidden>
-            <span className="light close" />
-            <span className="light minimize" />
-            <span className="light zoom" />
+          <div className="lights">
+            <a className="light close" href="https://lafluke.com" aria-label="Close and go to lafluke.com" title="Back to lafluke.com" />
+            <span className="light minimize" aria-hidden />
+            <span className="light zoom" aria-hidden />
           </div>
           <h1 className="title">
             <span className={`statusDot ${loading || report?.busy ? "busy" : ""}`} aria-hidden />
